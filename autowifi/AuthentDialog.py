@@ -16,11 +16,11 @@
 
 import sys
 import os
-import gtk
+from gi.repository import Gtk, GObject
 
 from autowifi.autowificonfig import getdatapath
 
-class AuthentDialog(gtk.Dialog):
+class AuthentDialog(Gtk.Dialog):
     __gtype_name__ = "AuthentDialog"
 
     def __init__(self):
@@ -48,14 +48,14 @@ class AuthentDialog(gtk.Dialog):
 
     def ok(self, widget, data=None):
         """ok - The user has elected to save the changes.
-        Called before the dialog returns gtk.RESONSE_OK from run().
+        Called before the dialog returns Gtk.RESONSE_OK from run().
 
         """
         pass
 
     def cancel(self, widget, data=None):
         """cancel - The user has elected cancel changes.
-        Called before the dialog returns gtk.RESPONSE_CANCEL for run()
+        Called before the dialog returns Gtk.RESPONSE_CANCEL for run()
 
         """
         pass
@@ -89,7 +89,7 @@ def NewAuthentDialog():
     if not os.path.exists(ui_filename):
         ui_filename = None
 
-    builder = gtk.Builder()
+    builder = Gtk.Builder()
     builder.add_from_file(ui_filename)
     dialog = builder.get_object("authent_dialog")
     dialog.finish_initializing(builder)
@@ -98,5 +98,5 @@ def NewAuthentDialog():
 if __name__ == "__main__":
     dialog = NewAuthentDialog()
     dialog.show()
-    gtk.main()
+    Gtk.main()
 

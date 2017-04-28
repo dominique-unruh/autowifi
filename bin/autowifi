@@ -19,8 +19,9 @@
 
 import sys
 import os,shutil
-import gtk
-import gobject
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, GObject
 
 # Check if we are working in the source tree or from the installed
 # package and mangle the python path accordingly
@@ -54,10 +55,10 @@ socket.setdefaulttimeout(5.0)   # si pas de rep dans les 5secs -> error
 
 
 
-class IconApp(gtk.StatusIcon,NetMan):
+class IconApp(Gtk.StatusIcon,NetMan):
 
     def __init__(self):
-        gtk.StatusIcon.__init__(self)
+        Gtk.StatusIcon.__init__(self)
         NetMan.__init__(self)
 
         self._event=None
@@ -75,7 +76,7 @@ class IconApp(gtk.StatusIcon,NetMan):
         self._plugins = Plugins()
         self._plugins.add( localplugins )
         self._plugins.add( realplugins )
-        print "Known plugins:\n",self._plugins
+        print("Known plugins:\n"+self._plugins)
 
 
         self.connect('popup-menu', self.popup_menu_cb)
@@ -87,7 +88,7 @@ class IconApp(gtk.StatusIcon,NetMan):
         gobject.timeout_add(2*1000,self.reconnect)  # delay the first start, to be sure that icon is well displayed in systray
 
     def log(self,o):
-        print datetime.now(),o
+        print(datetime.now()+" "+o)
 
     def reconnect(self,*a):
         ssid=self.getCurrentSSID()
@@ -121,7 +122,7 @@ class IconApp(gtk.StatusIcon,NetMan):
             ret=w.run()
             login, password=w.login.strip(),w.password.strip()
             w.destroy()
-            if ret == gtk.RESPONSE_OK:
+            if ret == Gtk.RESPONSE_OK:
                 return login,password
 
         if ssid:
@@ -156,14 +157,14 @@ class IconApp(gtk.StatusIcon,NetMan):
     
                     try:
                         ret=plugin.connectWithAuthent( login,password )
-                    except Exception,ex:
+                    except Exception as ex:
                         ret="plugin error"
                         self.log("%s (id:%s / ssid:%s) : %s " % (ret,plugin.id,ssid,str(ex)))
                 elif hasattr(plugin,"connect"):
                     # this plugin doesn't need an ident
                     try:
                         ret=plugin.connect()    # TODO: shouldn't return false, else an authent will be asked (see next)
-                    except Exception,ex:
+                    except Exception as ex:
                         ret="plugin error"
                         self.log("%s (id:%s / ssid:%s) : %s " % (ret,plugin.id,ssid,str(ex)))
                 else:
@@ -228,15 +229,15 @@ class IconApp(gtk.StatusIcon,NetMan):
 
     def quit_cb(self,widget):
         self.set_visible(False)
-        gtk.main_quit()
+        Gtk.main_quit()
 
     def popup_menu_cb(self,widget, button, time):
         if button == 3:
-            menu = gtk.Menu()
-            menuItem = gtk.ImageMenuItem("Force reconnect")
+            menu = Gtk.Menu()
+            menuItem = Gtk.ImageMenuItem("Force reconnect")
             menuItem.connect('activate', self.reconnect)
             menu.append(menuItem)
-            menuItem = gtk.ImageMenuItem(gtk.STOCK_QUIT)
+            menuItem = Gtk.ImageMenuItem(Gtk.STOCK_QUIT)
             menuItem.connect('activate', self.quit_cb)
             menu.append(menuItem)
             
@@ -267,5 +268,5 @@ if __name__ == "__main__":
     #run the application
     window = NewAutowifiWindow()
     #window.show()
-    gtk.main()
+    Gtk.main()
 
