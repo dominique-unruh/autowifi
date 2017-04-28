@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Komodo Project File - DO NOT EDIT -->
+<project id="18aea7b4-af77-4b84-8f4f-a38a5c232830" kpf_version="5" name="autowifi.komodoproject">
+<preference-set idref="18aea7b4-af77-4b84-8f4f-a38a5c232830">
+  <boolean id="import_live">1</boolean>
+</preference-set>
+</project>

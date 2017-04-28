@@ -1,0 +1,16 @@
+Autowifi
+========
+
+AutoWifi is an application which try to login automatically on wifi hotspots with web-based authentification. This app stay in systray, and process secure login when a SSID is matched by AutoWifi. The goal is to remove the hassle of doing web-based authent for theses kinds of free hotspots, letting you surf as if you were on your lan. AutoWifi is a linux app, and it will never be released for others platforms. It's a pygtk application, and it's released under the GPL2 terms.
+
+See more on http://www.manatlan.com/page/autowifi
+
+
+Info
+====
+This is the source repository.
+
+It's a Quickly project ( https://launchpad.net/quickly ).
+
+It contains a kpf file (KomodoEdit Project File), to manage the project under
+KomodoEdit, and let me easily publish the deb in my PPA/Launchpad.

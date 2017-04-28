@@ -1,0 +1,27 @@
+Source: autowifi
+Section: python
+Priority: extra
+Build-Depends: cdbs (>= 0.4.43),
+ debhelper (>= 6),
+ python,
+ python-support (>= 0.6.4),
+ python-distutils-extra (>= 2.10)
+Maintainer: manatlan <manatlan@gmail.com>
+Standards-Version: 3.8.2
+XS-Python-Version: current
+
+Package: autowifi
+Architecture: all
+XB-Python-Version: ${python:Versions}
+Depends: ${misc:Depends},
+ ${python:Depends},
+ python-xdg,
+ python-dbus,
+ python-notify,
+ python-gobject,
+ python-twill,
+ python-distutils-extra,
+ python-gtk2
+Description: Gtk app which try to login automatically on wifi hotspots with web-based authentification
+ Gtk app which try to login automatically on wifi hotspots with web-based
+ authentification

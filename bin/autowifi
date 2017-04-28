@@ -1,0 +1,271 @@
+#!/usr/bin/python
+# -*- Mode: Python; coding: utf-8; indent-tabs-mode: nil; tab-width: 4 -*-
+### BEGIN LICENSE
+# Copyright (C) 2010 manatlan manatlan@gmail.com
+# This program is free software: you can redistribute it and/or modify it 
+# under the terms of the GNU General Public License version 2, as published 
+# by the Free Software Foundation.
+# 
+# This program is distributed in the hope that it will be useful, but 
+# WITHOUT ANY WARRANTY; without even the implied warranties of 
+# MERCHANTABILITY, SATISFACTORY QUALITY, or FITNESS FOR A PARTICULAR 
+# PURPOSE.  See the GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License along 
+# with this program.  If not, see <http://www.gnu.org/licenses/>.
+### END LICENSE
+
+# see : http://www.manatlan.com/page/autowifi
+
+import sys
+import os,shutil
+import gtk
+import gobject
+
+# Check if we are working in the source tree or from the installed
+# package and mangle the python path accordingly
+if os.path.dirname(sys.argv[0]) != ".":
+    if sys.argv[0][0] == "/":
+        fullPath = os.path.dirname(sys.argv[0])
+    else:
+        fullPath = os.getcwd() + "/" + os.path.dirname(sys.argv[0])
+else:
+    fullPath = os.getcwd()
+sys.path.insert(0, os.path.dirname(fullPath))
+
+from autowifi import AuthentDialog
+from autowifi.autowificonfig import getdatapath
+import twill   # just to be sure it will be here
+from datetime import datetime
+#=========================================================================
+from autowifi.pluginloader import Plugins
+from autowifi.netman import NetMan
+from autowifi.config import Config
+#=========================================================================
+import pynotify
+def notify(s):
+    pynotify.init(sys.argv[0])
+    pynotify.Notification('AutoWifi', s, os.path.join(getdatapath(),"media","icon.png") ).show()
+#=========================================================================
+
+import socket
+socket.setdefaulttimeout(5.0)   # si pas de rep dans les 5secs -> error
+
+
+
+
+class IconApp(gtk.StatusIcon,NetMan):
+
+    def __init__(self):
+        gtk.StatusIcon.__init__(self)
+        NetMan.__init__(self)
+
+        self._event=None
+        self._previousInfo=None
+        self._cfg = Config("autowifi")
+
+        localplugins = os.path.join(self._cfg.folder,"plugins")
+        realplugins = os.path.join(getdatapath(),"plugins")
+
+        if not os.path.isdir( localplugins ):
+            os.makedirs(localplugins)
+
+        shutil.copyfile( os.path.join(realplugins,"_virgin.py"), os.path.join(localplugins,"_virgin.py"))
+
+        self._plugins = Plugins()
+        self._plugins.add( localplugins )
+        self._plugins.add( realplugins )
+        print "Known plugins:\n",self._plugins
+
+
+        self.connect('popup-menu', self.popup_menu_cb)
+
+        self.set_from_file( os.path.join(getdatapath(),"media","icon.png") )
+
+        self.set_visible(True)
+
+        gobject.timeout_add(2*1000,self.reconnect)  # delay the first start, to be sure that icon is well displayed in systray
+
+    def log(self,o):
+        print datetime.now(),o
+
+    def reconnect(self,*a):
+        ssid=self.getCurrentSSID()
+        self.log("Reconnect to '%s'"%ssid)
+        if ssid:
+            self.tryconnect(ssid)
+        else:
+            self.changeInfo("no wifi/ssid")
+            self.set_from_file( os.path.join(getdatapath(),"media","icon.png") )
+
+    def on_ssid_changed(self,ssid):
+        if self._event is not None:             # to avoid multiple events due to on_ssid_changed qui rerun a tryconnect
+            gobject.source_remove(self._event)
+            self._event=None
+
+        self.log("SSID changed to '%s'"%ssid)
+        self.tryconnect(ssid)
+
+    def tryconnect(self,ssid):
+        self.set_from_file( os.path.join(getdatapath(),"media","icon_process.png") )
+        go=lambda: self._tryconnect(ssid)
+        gobject.idle_add(go)
+
+    def _tryconnect(self,ssid):
+
+        def askAuthent( title, login, password ):
+            w=AuthentDialog.NewAuthentDialog()
+            w.set_title( title )
+            w.login    = login and login.strip() or ""
+            w.password = password and password.strip() or ""
+            ret=w.run()
+            login, password=w.login.strip(),w.password.strip()
+            w.destroy()
+            if ret == gtk.RESPONSE_OK:
+                return login,password
+
+        if ssid:
+            plugin = self._plugins.getPluginForSSID(ssid)
+            if plugin:
+                # a plugin is found
+    
+    
+                #=================================================================
+                # will try to connect this plugin
+                #=================================================================
+                if hasattr(plugin,"connectWithAuthent"):
+                    # this plugin use an authent !!
+    
+                    # get login,password from conf
+                    login = self._cfg[plugin.id+".login"]
+                    password = self._cfg[plugin.id+".password"]
+    
+                    # ensure login,password is something (1st cnx only)
+                    while not (login and password):
+                        r=askAuthent( "New Account for '%s' ?"%ssid,login,password)
+                        if r:
+                            login,password = r
+                            if login and password :
+                                # save login,password to conf
+                                self._cfg[plugin.id+".login"]=login
+                                self._cfg[plugin.id+".password"]=password
+                        else:
+                            # cancel dialog
+                            return # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+    
+                    try:
+                        ret=plugin.connectWithAuthent( login,password )
+                    except Exception,ex:
+                        ret="plugin error"
+                        self.log("%s (id:%s / ssid:%s) : %s " % (ret,plugin.id,ssid,str(ex)))
+                elif hasattr(plugin,"connect"):
+                    # this plugin doesn't need an ident
+                    try:
+                        ret=plugin.connect()    # TODO: shouldn't return false, else an authent will be asked (see next)
+                    except Exception,ex:
+                        ret="plugin error"
+                        self.log("%s (id:%s / ssid:%s) : %s " % (ret,plugin.id,ssid,str(ex)))
+                else:
+                    ret="plugin hasn't got a connect method ?!?"
+    
+    
+    
+                #=================================================================
+                # will study the result (from 'ret'
+                #=================================================================
+                if ret is True:
+                    self.changeInfo("Connected (%s)"%ssid)
+                    self.set_from_file( os.path.join(getdatapath(),"media","icon_ok.png") )
+                    self._event=gobject.timeout_add(60*1000,self.reconnect) # to keep connection alive !
+                elif ret is False:
+                    self.changeInfo("Authent failed (%s) !" % ssid)
+                    self.set_from_file( os.path.join(getdatapath(),"media","icon_ko.png") )
+    
+    
+                    # get login,password from conf
+                    #-----------------------------------------------
+                    login = self._cfg[plugin.id+".login"]
+                    password = self._cfg[plugin.id+".password"]
+    
+                    # will ask login,password again
+                    #-----------------------------------------------
+                    while 1:
+                        r=askAuthent( "Authent for '%s', sure ?"%ssid,login,password)
+                        if r:
+                            login,password = r
+                            if login and password :
+                                # save login,password to conf
+                                self._cfg[plugin.id+".login"]=login
+                                self._cfg[plugin.id+".password"]=password
+        
+                                break # quit loop
+                        else:
+                            # cancel dialog
+                            return # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+                    self._event=gobject.timeout_add(1*1000,self.reconnect)  # to force reconnect as soon as possible
+                else:
+                    self.changeInfo("Error (%s) : %s\nWill retry soon !" % (ssid,str(ret)))
+                    self.set_from_file( os.path.join(getdatapath(),"media","icon_ko.png") )
+                    self._event=gobject.timeout_add(5*1000,self.reconnect)  # to force reconnect as soon as possible
+    
+            else:
+                # 404 plugin not found ;-)
+                self.changeInfo("Unknow ssid (no plugin)")
+                self.set_from_file( os.path.join(getdatapath(),"media","icon.png") )
+        else:
+            # ssid is none
+            self.changeInfo("no ssid")
+            self.set_from_file( os.path.join(getdatapath(),"media","icon.png") )
+
+    def changeInfo(self,info):
+        self.log("INFO:"+info)
+        if info != self._previousInfo:
+            self.set_tooltip("AutoWifi : %s"%info)
+            notify(info)
+            self._previousInfo = info
+
+    def quit_cb(self,widget):
+        self.set_visible(False)
+        gtk.main_quit()
+
+    def popup_menu_cb(self,widget, button, time):
+        if button == 3:
+            menu = gtk.Menu()
+            menuItem = gtk.ImageMenuItem("Force reconnect")
+            menuItem.connect('activate', self.reconnect)
+            menu.append(menuItem)
+            menuItem = gtk.ImageMenuItem(gtk.STOCK_QUIT)
+            menuItem.connect('activate', self.quit_cb)
+            menu.append(menuItem)
+            
+            menu.show_all()
+            menu.popup(None, None, None, 3, time)
+
+
+def NewAutowifiWindow():
+    """NewAutowifiWindow - returns a fully instantiated
+    AutowifiWindow object. Use this function rather than
+    creating a AutowifiWindow directly.
+    """
+
+    return IconApp()
+
+if __name__ == "__main__":
+    #support for command line options
+    import logging, optparse
+    parser = optparse.OptionParser(version="%prog %ver")
+    parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="Show debug messages")
+    (options, args) = parser.parse_args()
+
+    #set the logging level to show debug messages
+    if options.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+        logging.debug('logging enabled')
+
+    #run the application
+    window = NewAutowifiWindow()
+    #window.show()
+    gtk.main()
+

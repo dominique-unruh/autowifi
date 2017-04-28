@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Autowifi
+Comment=Try to authent automatically on wifi hotspots with web-based authentification
+Categories=GNOME;Network;
+Exec=autowifi
+Icon=/usr/share/autowifi/media/icon.png
+Terminal=false
+Type=Application

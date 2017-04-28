@@ -1,0 +1,10 @@
+Format-Specification: http://wiki.debian.org/Proposals/CopyrightFormat
+Upstream-Name: autowifi
+Upstream-Maintainer: manatlan <manatlan@gmail.com>
+Upstream-Source: UNKNOWN
+
+Files: *
+Copyright: (C) YYYY manatlan manatlan@gmail.com
+License: GPL-2
+ The full text of the GPL is distributed in
+ /usr/share/common-licenses/GPL-2 on Debian systems.

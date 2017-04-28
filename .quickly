@@ -1,0 +1,3 @@
+project = autowifi
+template = ubuntu-application
+version = 0.6.1
