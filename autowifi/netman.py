@@ -27,28 +27,31 @@ class NetMan(object):
         self.nmi = dbus.Interface(nmo, 'org.freedesktop.NetworkManager')
         self.nmi.connect_to_signal('PropertiesChanged', self._on_properties_changed)
 
+    def _get_property(self,iface,name):
+        return iface.Get(iface.dbus_interface,name,dbus_interface='org.freedesktop.DBus.Properties')
+    
+    def getPrimaryConnection(self):
+        path = self._get_property(self.nmi,'PrimaryConnection')
+        if path=="/": return None
+        obj = self.bus.get_object('org.freedesktop.NetworkManager', path)
+        iface = dbus.Interface(obj, 'org.freedesktop.NetworkManager.Connection.Active')
+        return iface
+
     def _on_properties_changed(self,properties):
-        if "State" in properties and int(properties["State"])==3:  # connected
+        #print "Props changed: ",properties
+        if "State" in properties and int(properties["State"])==70:  # was 3 before, but experiments show we get 70. (?)
             ssid=self.getCurrentSSID()
+            print "New connection",ssid
             self.on_ssid_changed(ssid)
 
     def on_ssid_changed(self,ssid):
         pass
 
     def getCurrentSSID(self):
-        NMI= 'org.freedesktop.NetworkManager'
-        PI = 'org.freedesktop.DBus.Properties'
-
-        for i in self.nmi.GetDevices():
-            devo = self.bus.get_object(NMI, i)
-            devpi = dbus.Interface(devo, PI)
-            try:
-                ap=devpi.Get(NMI,"ActiveAccessPoint")
-                apo = self.bus.get_object(NMI, ap)
-                appi = dbus.Interface(apo, PI)
-                return "".join(["%c"%i for i in appi.Get(NMI, "Ssid")])
-            except Exception,m:
-                pass
+        primaryConn = self.getPrimaryConnection()
+        #print "primaryConn",primaryConn
+        if primaryConn is None: return None
+        return self._get_property(primaryConn,'Id')
 
 if __name__ == "__main__":
     n=NetMan()
